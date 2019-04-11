@@ -1,0 +1,34 @@
+---
+title: "Harvard Professors' Political Party Donations"
+author: "Dasha Metropolitansky"
+date: "March 6, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(gt)
+library(knitr)
+library(stringr)
+library(ggthemes)
+```
+
+```{r echo = FALSE}
+read_rds("fec_graphic.rds") %>%
+  group_by(quarter) %>%
+  ggplot(aes(x = quarter, y = amount, fill = party)) + 
+  geom_col() + 
+  coord_flip() +
+  labs(title = "Harvard Professors' Financial Contributions to Political Parties",
+       caption = "Source: Federal Elections Commission") +
+  guides(fill = guide_legend(title= "Party")) +
+  xlab("Quarter") +
+  ylab("Amount Donated ($)") +
+  theme_fivethirtyeight() +
+  theme(plot.title = element_text(size = 14)) +
+  theme(plot.title = element_text(face="bold", margin = margin(t = 0, r = 0, b = 15, l = 0)))
+```

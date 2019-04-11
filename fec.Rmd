@@ -1,0 +1,238 @@
+---
+title: "Candidates, Committees, and Contributions"
+author: "Dasha Metropolitansky"
+date: "April 10, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, cache = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(utils)
+library(tidyverse)
+library(readr)
+library(janitor)
+library(stringr)
+library(gt)
+
+#Downloading files from FEC website
+
+download.file(url = "https://www.fec.gov/files/bulk-downloads/2006/weball06.zip", 
+              destfile = "2005_2006.zip", 
+              mode = "wb")
+
+q1 = read_delim("2005_2006.zip", delim = "|", col_names = FALSE, escape_double = FALSE) %>% 
+  clean_names()
+
+download.file(url = "https://www.fec.gov/files/bulk-downloads/2006/cm06.zip", 
+              destfile = "2005_2006_com.zip", 
+              mode = "wb") 
+
+q3 = read_delim("2005_2006_com.zip", delim = "|", col_names = FALSE, escape_double = FALSE) %>% 
+  clean_names()
+
+download.file(url = "https://www.fec.gov/files/bulk-downloads/2006/indiv06.zip", 
+              destfile = "2005_2006_ind.zip", 
+              mode = "wb") 
+
+q4 = read_delim("2005_2006_ind.zip", delim = "|", col_names = FALSE, escape_double = FALSE, guess_max = 10000) %>% 
+  clean_names() 
+
+#Deleting files
+
+fs::file_delete("2005_2006_ind.zip")
+fs::file_delete("2005_2006.zip")
+fs::file_delete("2005_2006_com.zip")
+```
+
+###Answering questions about the candidates data
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+q1_2 = q1 %>%
+  select(x1, x2, x5, x11, x19)
+names(q1_2) = c("cand_id", "cand_name", "party", "cash", "cand_state")
+
+#Grouping the data by state, counting the number of observations in each group, and arranging in descending order
+
+state_rows = q1_2 %>%
+  group_by(cand_state) %>%
+  count() %>%
+  arrange(desc(n))
+```
+The state with the 3rd most rows is `r state_rows[3,1]`.
+
+```{r echo = FALSE, message = FALSE}
+
+#Splitting the name variable into last and first name, formatting the names like a title (first letter capitalized), combining the last and first name into a full name, sorting by length of the full name and arranging in descending order
+
+full_name = q1_2 %>%
+  separate(cand_name, into = c("Last", "First"), sep = ",", remove = FALSE) %>%
+  mutate(cand_name = str_to_title(cand_name),
+         Last = str_to_title(Last),
+         First = str_to_title(First)) %>%
+  mutate(normal_name = paste(First, Last)) %>%
+  mutate(name_length = str_length(normal_name)) %>%
+  arrange(desc(name_length)) %>%
+  select(normal_name)
+```
+The candidate with the 5th longest full name is `r full_name[5,1]`.
+
+```{r echo = FALSE, message = FALSE}
+
+##Splitting the name variable into last and first name, formatting the names like a title (first letter capitalized), combining the last and first name into a full name, sorting by length of the last name and arranging in descending order. 
+
+last_name = q1_2 %>%
+  separate(cand_name, into = c("Last", "First"), sep = ",", remove = FALSE) %>%
+  mutate(cand_name = str_to_title(cand_name),
+         Last = str_to_title(Last),
+         First = str_to_title(First)) %>%
+  mutate(normal_name = paste(First, Last)) %>%
+  mutate(last_name_length = str_length(Last)) %>%
+  arrange(desc(last_name_length)) %>%
+  select(normal_name, last_name_length)
+```
+The candidate with the longest last name is `r last_name[1,1]`.
+
+###Exploring the 5 parties with the largest aggregate cash holdings
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+#Collapsing the various factors meaning "democrat" and "republican" into one factor and renaming the IND, LIB, OTH factors. For Democrat, I included "DFL" because it's a branch of the Democrats in Minnesota. 
+
+q1_2 %>%
+  mutate(party = fct_collapse(party, Democrat = c("DEM", "Dem", "DFL"), 
+                              Republican = c("REP", "Rep"),
+                              Independent = "IND",
+                              Libertarian = "LIB",
+                              Other = "OTH")) %>%
+  
+#Grouping by party, totalling the cash amount by party, and arranging in descending order
+  
+  group_by(party) %>%
+  summarise(total_cash = sum(cash, na.rm = TRUE)) %>%
+  arrange(desc(total_cash)) %>% 
+  
+#Selecting the first five rows 
+  
+  slice(1:5) %>%
+  
+#Formatting the table with a title, column labels, and a source note
+  
+  gt() %>%
+  tab_header(title = "Parties With the Largest Aggregate Cash Holdings") %>%
+  cols_label(party = "Party", 
+             total_cash = "Cash Holdings") %>%
+  tab_source_note(md("Data from the FEC")) %>%
+  
+#Formatting the "cash" column values to include a $ and separate every 3 digits with a comma
+  
+  fmt_currency(columns = "total_cash", sep_mark = ",") %>%
+  cols_align(columns = "total_cash", align = "center")
+```
+
+###Exploring the unique number of candidate and committee IDs in each party
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+# Selecting relevant variables from the dataset and renaming them to be descriptive
+
+q3_2 = q3 %>%
+  select(x15, x1, x11)
+names(q3_2) = c("cand_id", "cmte_id", "cmte_party")
+
+#Collapsing the various factors meaning "democrat" and "republican" into one factor and grouping the other factors into "other" 
+
+q3_2 %>% 
+  mutate(cmte_party = fct_collapse(cmte_party, Democrat = c("DEM", "Dem", "dem"), 
+                              Republican = c("REP", "Rep", "rep"))) %>%
+  mutate(cmte_party = fct_lump(cmte_party, n=2, other_level = "Other")) %>%
+  
+#Filtering out the NA observations in the committee party and candidate ID variables
+  
+  filter(!is.na(cmte_party), !is.na(cand_id)) %>%
+  
+#Grouping by party, counting the number of unique candidate IDs and committee IDs
+  
+  group_by(cmte_party) %>%
+  summarise(unique_cand = n_distinct(cand_id),
+            unique_cmte = n_distinct(cmte_id)) %>%
+  
+#Formatting the table with a title, column labels, and a source note
+  
+  tab_source_note("Source: Federal Elections Commission") %>%
+  tab_header("Overview of Unique Candidates and Committees, 2005-2006") %>%
+  gt() %>%
+  cols_label(cmte_party = "Committee Parties",
+             unique_cand = "Unique Candidate IDs",
+             unique_cmte = "Unique Committee IDs")
+```
+
+###Exploring the political contributions of Harvard professors 
+```{r echo = FALSE, message = FALSE}
+
+# Selecting relevant variables from the dataset and renaming them to be descriptive
+
+q4_2 = q4 %>%
+  select(x1, x14, x15, x12, x13)
+names(q4_2) = c("cmte_id", "date", "amount", "employer", "occupation")
+
+# Combining data from multiple tables sharing the candidate ID and committee ID variables
+
+tb1 = inner_join(x = q3_2, y = q1_2, by = "cand_id")
+inner_join(tb1, q4_2, by = "cmte_id") %>%
+  
+#Filtering by employer and occupation, filtering out observations where the party is NA
+  
+  filter(employer == "HARVARD UNIVERSITY") %>%
+  filter(str_detect(occupation, "PROFESSOR")) %>% 
+  filter(! is.na(party)) %>%
+  
+#Converting the date variable into the date type
+  
+  mutate(date = parse_date(date, format = "%m%d%Y")) %>%
+#Dividing the dates into quarter periods
+  mutate(quarter = cut(date, breaks = "quarter")) %>%
+  
+#Grouping the data by quarter and party, summing the donations greater than 0 for each group, creating a narrow table with date and the parties as variables
+  
+  group_by(quarter, party) %>%
+  summarize(amount = sum(amount>0)) %>%
+  spread(key = party, value = amount, fill = 0) %>%
+  ungroup() %>%
+  
+#Formatting the table with a title, column labels, and a source note
+  
+  tab_source_note("Source: Federal Elections Commission") %>%
+  gt() %>%
+  tab_header("Political Contributions of Harvard Professors by Party") %>%
+  cols_label(quarter = "Date", 
+             DEM = "Democrat", 
+             REP = "Republican")
+```
+
+```{r include = FALSE}
+
+#Joining data from committees and candidates 
+
+t1 = left_join(x = q3_2, y = q1_2, by = "cand_id")
+t3 = left_join(t1, q4_2, by = "cmte_id") %>%
+  
+#Filtering by employer and filtering out observations where party is NA
+  
+  filter(employer == "HARVARD UNIVERSITY") %>%
+  filter(!is.na(party)) %>%
+  
+#Converting the date to a data format type and breaking the date in quarters
+  
+  mutate(date = parse_date(date, format = "%m%d%Y")) %>%
+  mutate(quarter = cut(date, breaks = "quarter")) %>%
+  
+#Renaming the factors to be more descriptive
+  
+  mutate(party = fct_collapse(party, 
+                              Democrat = "DEM", 
+                              Republican = "REP", 
+                              Independent = "IND")) %>%
+  select(date, amount, employer, occupation, quarter, party) %>%
+  
+#Saves code to path file to be reused in graphic markdown document
+  
+  write_rds(path = "fec_graphic.rds")
+```
