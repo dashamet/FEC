@@ -1,7 +1,11 @@
 # 2005-2006 Federal Election Commission Filings
 
-This repo contains my analysis of 3 datasets from the 2005-06 Federal Election Commission (FEC) filings: committees, individual contributions, and candidates. The first 4 parts of the analysis are contained in the files with "fec" in their title. The 5th part of the analysis is in the files with "fec_graphic" in their title. 
+* `fec.rmd` contains my analysis of 3 datasets from the 2005-06 Federal Election Commission (FEC) filings: committees, individual contributions, and candidates. It produces the HTML file `fec.html`.
+  * In part 1, I conduct a preliminary exploratory analysis of the candidates dataset. 
+  * In part 2, I create a table of the 5 parties with the largest cash holdings. 
+  * In part 3, I create a table of the unique number of committee IDs and candidate IDs in each party. 
+  * In part 4, I create a table of the financial contributions of Harvard professors to political parties.
+  
+* `fec_graphic.Rmd` contains code for a visualization of Harvard professors' financial contributions to political parties (see part 4 above). It produces the HTML file `fec_graphic.html`. 
 
-In part 1, I answer basic questions about the contents of the candidates dataset. In part 2, I create a table of the 5 parties with the largest cash holdings. In part 3, I create a table of the unique number of committee and candidates IDs in each party. In part 4, I create a table of the financial contributions of Harvard professors to political parties. In part 5, I create a graph using the analysis in part 4. 
-
-The data I used is from the FEC website: https://www.fec.gov/data/browse-data/?tab=bulk-data
+* I used data from the [FEC](https://www.fec.gov/data/browse-data/?tab=bulk-data).
